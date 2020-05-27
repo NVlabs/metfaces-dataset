@@ -1,0 +1,13 @@
+MetFaces is an image dataset of human faces extracted from works of art.
+
+The source images are made available under the Creative Commons Zero (CC0)
+(https://creativecommons.org/publicdomain/zero/1.0/) license by the
+Metropolitan Museum of Art (https://www.metmuseum.org/).
+For more information about their Open Access policy, please refer to
+https://www.metmuseum.org/about-the-met/policies-and-documents/image-resources.
+
+The dataset itself (including JSON metadata, processed images, and documentation) is
+made available under Creative Commons BY-NC 2.0 (https://creativecommons.org/licenses/by-nc/2.0/)
+license by NVIDIA Corporation. You can use, redistribute, and adapt it
+for non-commercial purposes, as long as you (a) give appropriate credit by
+citing our paper, and (b) indicate any changes that you've made.
