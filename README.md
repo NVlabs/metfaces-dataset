@@ -2,7 +2,11 @@
 
 ![Teaser image](./img/metfaces-teaser.png)
 
-MetFaces is an image dataset of human faces extracted from works of art.
+MetFaces is an image dataset of human faces extracted from works of art, originally created as part of our work on:
+
+> **Training Generative Adversarial Networks with Limited Data**<br>
+> Tero Karras (NVIDIA), Miika Aittala (NVIDIA), Janne Hellsten (NVIDIA), Samuli Laine (NVIDIA), Jaakko Lehtinen (NVIDIA and Aalto University), Timo Aila (NVIDIA)<br>
+> https://arxiv.org/abs/2006.06676
 
 The dataset consists of 1336 high-quality PNG images at 1024&times;1024 resolution.  The images were downloaded via the [Metropolitan Museum of Art Collection API](https://metmuseum.github.io/), and automatically aligned and cropped using [dlib](http://dlib.net/).  Various automatic filters were used to prune the set.
 
