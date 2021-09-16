@@ -37,7 +37,16 @@ All data is hosted on Google Drive:
 MetFaces 1024x1024 images can be reproduced with the `metfaces.py` script as follows:
 
 1. Download the contents of the metfaces-dataset Google Drive folder.  Retain the original folder structure (e.g., you should have `local/path/metfaces.json`, `local/path/unprocessed`.)
-2. Run `metfaces.py --json data/metfaces.json --source-images data --output-dir out`
+2. Run `metfaces.py --json data/metfaces-dataset.json --source-images data --output-dir out`
+
+To reproduce the MetFaces-U dataset ("unaligned MetFaces"), use the following command:
+
+```
+python metfaces.py --json data/metfaces-dataset.json --source-images data \
+    --random-shift=0.2 --retry-crops --no-rotation \
+    --output-dir out-unaligned
+```
+
 
 ## Metadata
 

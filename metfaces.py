@@ -26,7 +26,7 @@ _examples = '''examples:
   python %(prog)s --output=tmp
 '''
 
-def extract_face(face, source_images, output_dir, target_size=1024, supersampling=4, enable_padding=True):
+def extract_face(face, source_images, output_dir, rng, target_size=1024, supersampling=4, enable_padding=True, random_shift=0.0, retry_crops=False, rotate_level=True):
     def rot90(v) -> np.ndarray:
         return np.array([-v[1], v[0]])
 
@@ -49,22 +49,44 @@ def extract_face(face, source_images, output_dir, target_size=1024, supersamplin
     eye_to_mouth = mouth_avg - eye_avg
 
     # Choose oriented crop rectangle.
-    x = eye_to_eye - rot90(eye_to_mouth)
-    x /= np.hypot(*x)
-    x *= max(np.hypot(*eye_to_eye) * 2.0, np.hypot(*eye_to_mouth) * 1.8)
-    y = rot90(x)
-    c = eye_avg + eye_to_mouth * 0.1
-
-    # Calculate auxiliary data.
-    qsize = np.hypot(*x) * 2
-    quad = np.stack([c - x - y, c - x + y, c + x + y, c + x - y])
-    lo = np.min(quad, axis=0)
-    hi = np.max(quad, axis=0)
-    lm_rel = np.dot(landmarks - c, np.transpose([x, y])) / qsize**2 * 2 + 0.5
-    rp = np.dot(np.random.RandomState(123).uniform(-1, 1, size=(1024, 2)), [x, y]) + c
+    if rotate_level:
+        # Orient according to tilt of the input image
+        x = eye_to_eye - rot90(eye_to_mouth)
+        x /= np.hypot(*x)
+        x *= max(np.hypot(*eye_to_eye) * 2.0, np.hypot(*eye_to_mouth) * 1.8)
+        y = rot90(x)
+        c0 = eye_avg + eye_to_mouth * 0.1
+    else:
+        # Do not match the tilt in the source data, i.e., use an axis-aligned rectangle
+        x = np.array([1, 0], dtype=np.float64)
+        x *= max(np.hypot(*eye_to_eye) * 2.0, np.hypot(*eye_to_mouth) * 1.8)
+        y = np.flipud(x) * [-1, 1]
+        c0 = eye_avg + eye_to_mouth * 0.1
 
     # Load.
     img = PIL.Image.open(os.path.join(source_images, face['source_path'])).convert('RGB')
+
+    # Calculate auxiliary data.
+    qsize = np.hypot(*x) * 2
+    quad = np.stack([c0 - x - y, c0 - x + y, c0 + x + y, c0 + x - y])
+
+    # Keep drawing new random crop offsets until we find one that is contained in the image
+    # and does not require padding
+    if random_shift != 0:
+        for _ in range(1000):
+            # Offset the crop rectange center by a random shift proportional to image dimension
+            # and the requested standard deviation (by default 0)
+            c = (c0 + np.hypot(*x)*2 * random_shift * rng.normal(0, 1, c0.shape))
+            quad = np.stack([c - x - y, c - x + y, c + x + y, c + x - y])
+            crop = (int(np.floor(min(quad[:,0]))), int(np.floor(min(quad[:,1]))), int(np.ceil(max(quad[:,0]))), int(np.ceil(max(quad[:,1]))))
+            if not retry_crops or not (crop[0] < 0 or crop[1] < 0 or crop[2] >= img.width or crop[3] >= img.height):
+                # We're happy with this crop (either it fits within the image, or retries are disabled)
+                break
+        else:
+            # rejected N times, give up and move to next image
+            # (does not happen in practice with the MetFaces data)
+            print('rejected image %s' % face['source_path'])
+            return
 
     # Shrink.
     shrink = int(np.floor(qsize / target_size * 0.5))
@@ -116,14 +138,20 @@ def main():
     parser.add_argument('--json', help='MetFaces metadata json file path', required=True)
     parser.add_argument('--source-images', help='Location of MetFaces raw image data', required=True)
     parser.add_argument('--output-dir', help='Where to save output files')
+    parser.add_argument('--random-shift', help='Standard deviation of random crop rectangle jitter', type=float, default=0.0, metavar='SHIFT')
+    parser.add_argument('--retry-crops', help='Retry random shift if crop rectangle falls outside image (up to 1000 times)', dest='retry_crops', default=False, action='store_true')
+    parser.add_argument('--no-rotation', help='Keep the original orientation of images', dest='no_rotation', default=False, action='store_true')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    with open(args.json) as fin:
+    rng = np.random.RandomState(12345)  # fix the random seed for reproducibility
+
+    with open(args.json, encoding="utf8") as fin:
         faces = json.load(fin)
         for f in tqdm(faces):
-            extract_face(f, source_images=args.source_images, output_dir=args.output_dir)
+            extract_face(f, source_images=args.source_images, output_dir=args.output_dir, rng=rng,
+                random_shift=args.random_shift, retry_crops=args.retry_crops, rotate_level=not args.no_rotation)
 
 if __name__ == "__main__":
     main()
